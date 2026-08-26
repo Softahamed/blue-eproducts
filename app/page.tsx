@@ -231,6 +231,7 @@ export default function Home() {
       {/* Product Detail Modal */}
       {selectedProduct && (
         <ProductDetailModal
+          key={selectedProduct.id}
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
           onAddToCart={toggleAddToCart}

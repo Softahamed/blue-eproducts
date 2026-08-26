@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Download, ShoppingCart, Check } from "lucide-react";
 
@@ -22,6 +23,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, onAddToCart, onSelectProduct, isInCart }: ProductCardProps) {
   const isFree = product.price === 0;
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <motion.div
@@ -44,13 +46,20 @@ export default function ProductCard({ product, onAddToCart, onSelectProduct, isI
 
         {/* Thumbnail Image */}
         <div className="relative h-48 w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center overflow-hidden">
-          <motion.img
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.4 }}
-            src={product.image}
-            alt={product.title}
-            className="w-full h-full object-cover"
-          />
+          {product.image && !imageFailed ? (
+            <motion.img
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.4 }}
+              src={product.image.trim()}
+              alt={product.title}
+              onError={() => setImageFailed(true)}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="px-6 text-center text-sm font-semibold text-blue-700/70 dark:text-blue-300/70">
+              Product preview unavailable
+            </div>
+          )}
         </div>
 
         {/* Content */}

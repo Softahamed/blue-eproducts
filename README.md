@@ -16,6 +16,8 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+For admin access, open `/admin/login`. Set `ADMIN_PASSWORD` in Vercel Project Settings > Environment Variables to the same private password used locally.
+
 ## Slow filesystem warning
 
 If Next.js reports `Slow filesystem detected`, it is a development performance warning caused by the drive or antivirus scanning `.next`, not an application error. Keep this project on a local NTFS drive, such as `C:\dev\blue-eproducts`, and exclude the project folder from real-time antivirus scanning when appropriate. Restart `npm run dev` after moving it.

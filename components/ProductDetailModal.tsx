@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Download, ShoppingCart, Check, ShieldCheck, Sparkles } from "lucide-react";
 import { Product } from "./ProductCard";
@@ -17,6 +18,8 @@ export default function ProductDetailModal({
   onAddToCart,
   isInCart,
 }: ProductDetailModalProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   if (!product) return null;
 
   const isFree = product.price === 0;
@@ -41,11 +44,16 @@ export default function ProductDetailModal({
 
           {/* Product Image Section */}
           <div className="w-full md:w-1/2 relative bg-slate-100 dark:bg-slate-800 flex items-center justify-center min-h-[260px] md:min-h-full">
-            <img
-              src={product.image}
-              alt={product.title}
-              className="w-full h-full object-cover"
-            />
+            {product.image && !imageFailed ? (
+              <img
+                src={product.image.trim()}
+                alt={product.title}
+                onError={() => setImageFailed(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="px-6 text-center text-sm font-semibold text-slate-500">Product preview unavailable</div>
+            )}
             <span className="absolute top-4 left-4 z-10 px-3 py-1 text-xs font-bold rounded-full bg-blue-600 text-white shadow-md capitalize">
               {product.category}
             </span>
