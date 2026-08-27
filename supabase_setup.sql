@@ -57,6 +57,10 @@ insert into storage.buckets (id, name, public)
 values ('payment-slips', 'payment-slips', true)
 on conflict (id) do update set public = true;
 
+insert into storage.buckets (id, name, public)
+values ('product-assets', 'product-assets', true)
+on conflict (id) do update set public = true;
+
 drop policy if exists "Public can upload payment slips" on storage.objects;
 create policy "Public can upload payment slips"
 on storage.objects for insert to anon, authenticated
@@ -66,6 +70,16 @@ drop policy if exists "Public can view payment slips" on storage.objects;
 create policy "Public can view payment slips"
 on storage.objects for select to anon, authenticated
 using (bucket_id = 'payment-slips');
+
+drop policy if exists "Public can upload product assets" on storage.objects;
+create policy "Public can upload product assets"
+on storage.objects for insert to anon, authenticated
+with check (bucket_id = 'product-assets');
+
+drop policy if exists "Public can view product assets" on storage.objects;
+create policy "Public can view product assets"
+on storage.objects for select to anon, authenticated
+using (bucket_id = 'product-assets');
 
 -- Refresh PostgREST's schema cache after creating the tables.
 notify pgrst, 'reload schema';

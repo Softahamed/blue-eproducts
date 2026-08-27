@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Plus, X, Package, DollarSign, Clock, CheckCircle2, Trash2 } from "lucide-react";
+import { Plus, X, Package, DollarSign, Clock, CheckCircle2, Trash2, Pencil } from "lucide-react";
 
 interface Order {
   id: string;
@@ -34,12 +34,14 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<"orders" | "products">("orders");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
 
   // Form State
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState<"ebook" | "template" | "tshirt" | "calendar">("ebook");
   const [newPrice, setNewPrice] = useState<number>(0);
   const [newImage, setNewImage] = useState("");
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [newDescription, setNewDescription] = useState("");
   const [newFileUrl, setNewFileUrl] = useState("");
 
@@ -115,32 +117,76 @@ export default function AdminDashboard() {
     if (!error) fetchOrders();
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
+  const resetProductForm = () => {
+    setNewTitle("");
+    setNewCategory("ebook");
+    setNewPrice(0);
+    setNewImage("");
+    setNewImageFile(null);
+    setNewDescription("");
+    setNewFileUrl("");
+    setEditingProduct(null);
+  };
+
+  const openAddProduct = () => {
+    resetProductForm();
+    setIsAddModalOpen(true);
+  };
+
+  const openEditProduct = (product: ProductItem) => {
+    setEditingProduct(product);
+    setNewTitle(product.title);
+    setNewCategory(product.category);
+    setNewPrice(Number(product.price));
+    setNewImage(product.image);
+    setNewImageFile(null);
+    setNewDescription(product.description);
+    setNewFileUrl(product.file_url || "");
+    setIsAddModalOpen(true);
+  };
+
+  const uploadCover = async (file: File) => {
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `covers/${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from("product-assets").upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+    if (error) throw new Error(`Could not upload cover image: ${error.message}`);
+    return supabase.storage.from("product-assets").getPublicUrl(filePath).data.publicUrl;
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newImageFile && !newImage.trim()) {
+      alert("Choose a cover image or enter an image URL.");
+      return;
+    }
     setIsSubmitting(true);
 
-    const { error } = await supabase.from("products").insert([
-      {
+    try {
+      const imageUrl = newImageFile ? await uploadCover(newImageFile) : newImage.trim();
+      const productData = {
         title: newTitle,
         category: newCategory,
         price: Number(newPrice),
-        image: newImage,
+        image: imageUrl,
         description: newDescription,
-        file_url: newFileUrl || null,
-      },
-    ]);
+        file_url: newFileUrl.trim() || null,
+      };
+      const { error } = editingProduct
+        ? await supabase.from("products").update(productData).eq("id", editingProduct.id)
+        : await supabase.from("products").insert([productData]);
+      if (error) throw new Error(formatSupabaseError(error.message));
 
-    setIsSubmitting(false);
-    if (!error) {
       setIsAddModalOpen(false);
-      setNewTitle("");
-      setNewImage("");
-      setNewDescription("");
-      setNewFileUrl("");
-      setNewPrice(0);
+      resetProductForm();
       fetchProducts();
-    } else {
-      alert("Error adding product: " + formatSupabaseError(error.message));
+    } catch (error) {
+      alert(`Error ${editingProduct ? "updating" : "adding"} product: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -192,7 +238,7 @@ export default function AdminDashboard() {
             </button>
           )}
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={openAddProduct}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/30 transition-all"
           >
             <Plus className="w-5 h-5" /> Add New Product
@@ -319,12 +365,14 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-700">
                 <span className="font-black text-white">{product.price === 0 ? "FREE" : `LKR ${product.price}`}</span>
-                <button
-                  onClick={() => handleDeleteProduct(product.id)}
-                  className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => openEditProduct(product)} className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button onClick={() => handleDeleteProduct(product.id)} className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all">
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -335,14 +383,14 @@ export default function AdminDashboard() {
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-3xl p-6 relative">
-            <button onClick={() => setIsAddModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+            <button onClick={() => { setIsAddModalOpen(false); resetProductForm(); }} className="absolute top-4 right-4 text-slate-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-              <Package className="w-5 h-5 text-blue-400" /> Add New Digital Product
+              <Package className="w-5 h-5 text-blue-400" /> {editingProduct ? "Edit Product" : "Add New Digital Product"}
             </h2>
 
-            <form onSubmit={handleAddProduct} className="space-y-4">
+            <form onSubmit={handleSaveProduct} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-slate-400">Product Title</label>
                 <input required type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white" placeholder="e.g. Canva Design Kit 2026" />
@@ -365,8 +413,10 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400">Image URL</label>
-                <input required type="url" value={newImage} onChange={(e) => setNewImage(e.target.value)} className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white" placeholder="https://images.unsplash.com/..." />
+                <label className="text-xs font-semibold text-slate-400">Cover Image</label>
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => setNewImageFile(e.target.files?.[0] || null)} className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-white" />
+                <p className="text-xs text-slate-500 mt-1">Upload an image directly, or use a direct image URL below.</p>
+                <input type="url" value={newImage} onChange={(e) => setNewImage(e.target.value)} className="w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white" placeholder="https://... (optional fallback)" />
               </div>
 
               <div>
@@ -380,7 +430,7 @@ export default function AdminDashboard() {
               </div>
 
               <button type="submit" disabled={isSubmitting} className="w-full py-3 bg-blue-600 hover:bg-blue-500 font-bold text-white rounded-xl transition-all">
-                {isSubmitting ? "Adding Product..." : "Save & Publish Product"}
+                {isSubmitting ? "Saving Product..." : editingProduct ? "Save Product Changes" : "Save & Publish Product"}
               </button>
             </form>
           </div>
